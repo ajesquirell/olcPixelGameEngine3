@@ -660,6 +660,7 @@ namespace olc
 
 	bool PixelGameEngine::OnContextEnd()
 	{
+		pHost->SetRelativeMouseMode(this, false);
 		return true;
 	}
 

@@ -3,6 +3,27 @@
 //! START IMPLEMENTATION
 namespace olc::host
 {
+    namespace
+    {
+        inline olc::vf2d DecodeRawMouseMotion(const X11::XIRawEvent& event)
+        {
+            olc::vf2d delta;
+            if (!event.valuators.mask_len) return delta;
+
+            const double* values = event.raw_values;
+            if (XIMaskIsSet(event.valuators.mask, 0))
+            {
+                delta.x = float(*values++);
+            }
+            if (XIMaskIsSet(event.valuators.mask, 0))
+            {
+                delta.y = float(*values);
+            }
+
+            return delta;
+        }
+    }
+
     Host_Linux_X11::Host_Linux_X11()
     {
         using namespace X11;
@@ -11,7 +32,7 @@ namespace olc::host
         olc_WindowRoot = DefaultRootWindow(olc_Display);
 
         // If supported, enable receiving touch events
-        enableTouch(olc_Display, olc_WindowRoot);
+        initializeXInput2(olc_Display, olc_WindowRoot);
 
         if(XkbQueryExtension(olc_Display, nullptr, &xkbEventBase, &xkbErrorBase, nullptr, nullptr))
         {
@@ -266,21 +287,30 @@ namespace olc::host
                 else if (xev.type == MotionNotify)
                 {
                     X11::XMotionEvent& xme = xev.xmotion;
-                    if(auto* pge_window = get_pge_window(xev.xbutton.window); pge_window) {
+                    auto* pge_window = get_pge_window(xme.window);
+                    bool bMouseCaptured = pRelativeMouseWindow == pge_window;
+                    if (pge_window && !bMouseCaptured) {
                         pge_window->olc_OnMouseMove(olc::vi2d{xme.x, xme.y});
                     
                     }
                 }
                 else if (xev.type == FocusIn)
                 {
-                	
-                    if(auto* pge_window = get_pge_window(xev.xfocus.window); pge_window) {
+                    auto* pge_window = get_pge_window(xev.xfocus.window);
+                    int mode = xev.xfocus.mode;
+
+                    if (pge_window && mode != NotifyGrab && mode != NotifyUngrab) {
+                        if (pge_window->mouse.IsRelativeModeEnabled()) SetRelativeMouseMode(pge_window, true);
                         pge_window->olc_OnFocus(true);
                     }
                 }
                 else if (xev.type == FocusOut)
                 {
-                	if(auto* pge_window = get_pge_window(xev.xfocus.window); pge_window) {
+                    auto* pge_window = get_pge_window(xev.xfocus.window);
+                    int mode = xev.xfocus.mode;
+
+                    if (pge_window && mode != NotifyGrab && mode != NotifyUngrab) {
+                        releaseRelativeMouse(pge_window, false);
                         pge_window->olc_OnFocus(false);
                     }
                 }
@@ -296,9 +326,20 @@ namespace olc::host
                     X11::XGenericEventCookie& xgec = xev.xcookie;
 
                     if(xgec.extension == xinput_extension_code && X11::XGetEventData(olc_Display, &xgec)) {
-                        // Should be one of our touch events
-                        handleTouchEvent(static_cast<X11::XIDeviceEvent*>(xgec.data));
-                        X11::XFreeEventData(olc_Display, &xgec);
+                        if (xgec.evtype == XI_RawMotion)
+                        {
+                            if (pRelativeMouseWindow)
+                            {
+                                const X11::XIRawEvent& event = *static_cast<const X11::XIRawEvent*>(xgec.data);
+                                pRelativeMouseWindow->olc_OnRelativeMouseMove(DecodeRawMouseMotion(event));
+                            }
+                        }
+                        else
+                        {
+                            // Should be one of our touch events
+                            handleTouchEvent(static_cast<X11::XIDeviceEvent*>(xgec.data));
+                            X11::XFreeEventData(olc_Display, &xgec);
+                        }
                     }
                 }
             }
@@ -327,7 +368,7 @@ namespace olc::host
 
     bool Host_Linux_X11::OnSystemTick()
     {
-        return pPrimaryPGE->OnContextTick();;
+        return pPrimaryPGE->OnContextTick();
     }
 
     bool Host_Linux_X11::OnSystemThreadEnd()
@@ -395,6 +436,7 @@ namespace olc::host
 
     bool Host_Linux_X11::CloseWindowFrame(olc::Window* pWindow)
     {
+        releaseRelativeMouse(pWindow, false);
         const auto window_handle = mapUID2X11Window.find(pWindow->GetUID());
         const auto invisible_cursor = mapUID2X11Cursor.find(pWindow->GetUID());
 
@@ -491,22 +533,19 @@ namespace olc::host
 
     bool Host_Linux_X11::SetMousePosition(olc::Window* pWindow, const olc::vi2d& vPos)
     {
+        if (pRelativeMouseWindow) return false;
+
         auto win = mapUID2X11Window.at(pWindow->GetUID());
         
         // NOTE: xwayland will only allow warping when we have an active grab on a
         //       hidden mouse cursor.
 
-        X11::XGrabPointer(
-            olc_Display, win, True,
-            ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-            GrabModeAsync, GrabModeAsync,
-            win, X11::None, CurrentTime
-        );
+        captureCursor(win, X11::None);
 
         X11::XWarpPointer(olc_Display, X11::None, win, 0, 0, 0, 0, vPos.x, vPos.y);
         X11::XFlush(olc_Display);
 
-        X11::XUngrabPointer(olc_Display, CurrentTime);
+        releaseCursor();
         X11::XFlush(olc_Display);
 
         return true;
@@ -515,7 +554,7 @@ namespace olc::host
     bool Host_Linux_X11::SetMouseVisible(olc::Window* pWindow, const bool bVisible)
     {
         // NOTE: works on X11 and Xwayland, but does not work correctly in WSL2
-        
+
         // nothing to change, do nothing
         if(bMouseIsVisible == bVisible)
             return true;
@@ -566,7 +605,113 @@ namespace olc::host
         return true;
     }
 
-    void Host_Linux_X11::enableTouch(X11::Display* display, X11::Window window)
+    // Grabs the cursor and confines it to the window
+    void Host_Linux_X11::captureCursor(X11::Window xWindow, X11::Cursor xCursor)
+    {
+        X11::XGrabPointer(
+            olc_Display, xWindow, True,
+            ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+            GrabModeAsync, GrabModeAsync, xWindow, xCursor,
+            CurrentTime
+        );
+    }
+
+    // Ungrabs the cursor
+    void Host_Linux_X11::releaseCursor()
+    {
+        X11::XUngrabPointer(olc_Display, CurrentTime);
+    }
+
+    void Host_Linux_X11::setRawMouseMotionEnabled(bool bEnabled)
+    {
+        unsigned char bits[XIMaskLen(XI_RawMotion)] = {0};
+        if (bEnabled) XISetMask(bits, XI_RawMotion);
+
+        X11::XIEventMask mask;
+        mask.deviceid = XIAllMasterDevices;
+        mask.mask_len = sizeof(bits);
+        mask.mask = bits;
+        X11::XISelectEvents(olc_Display, olc_WindowRoot, &mask, 1);
+    }
+
+    bool Host_Linux_X11::isWindowFocused(X11::Window xWindow)
+    {
+        X11::Window focused;
+        int revert;
+        XGetInputFocus(olc_Display, &focused, &revert);
+        return focused == xWindow;
+    }
+
+    bool Host_Linux_X11::SetRelativeMouseMode(olc::Window *pWindow, bool bEnabled)
+    {
+        if (!bEnabled)
+        {
+            // Restore cursor to original location, as suggested here
+            // https://learn.microsoft.com/en-us/windows/uwp/gaming/relative-mouse-movement
+            releaseRelativeMouse(pWindow, true);
+            return true;
+        }
+        
+        if (pWindow == pRelativeMouseWindow) return true;
+        if (!bRawMotionSupported || pRelativeMouseWindow) return false;
+
+        const X11::Window xWin = mapUID2X11Window.at(pWindow->GetUID());
+        const X11::Cursor xCur = mapUID2X11Cursor.at(pWindow->GetUID());
+
+        if (!isWindowFocused(xWin)) return true;
+
+        X11::Window root = X11::None;
+        X11::Window child = X11::None;
+        int rootX = 0, rootY = 0, localX = 0, localY = 0;
+        unsigned int buttons = 0;
+        if (X11::XQueryPointer(olc_Display, xWin, &root, &child, &rootX, &rootY, &localX, &localY, &buttons))
+            vMousePostionToRestore = {localX, localY};
+        else
+            vMousePostionToRestore.reset();
+
+        captureCursor(xWin, xCur); // Using cursor here hides it
+
+        setRawMouseMotionEnabled(true);
+        pRelativeMouseWindow = pWindow;
+        X11::XFlush(olc_Display);
+        return true;
+    }
+
+    void Host_Linux_X11::releaseRelativeMouse(olc::Window* pWindow, bool bRestorePosition)
+    {
+        if (!pRelativeMouseWindow || pWindow != pRelativeMouseWindow) return;
+
+        setRawMouseMotionEnabled(false);
+
+        pRelativeMouseWindow = nullptr;
+
+        if (bRestorePosition) restorePositionAfterCapture(pWindow);
+
+        releaseCursor();
+
+        X11::XFlush(olc_Display);
+    }
+    
+    void Host_Linux_X11::restorePositionAfterCapture(olc::Window* pWindow)
+    {
+        // Note: pRelativeMouseWindow needs to be null for XWarpPointer -> MotionNotify to call olc_OnMouseMove
+
+        if (!vMousePostionToRestore.has_value()) return;
+
+        const X11::Window xWin = mapUID2X11Window.at(pWindow->GetUID());
+
+        X11::XWindowAttributes attributes{};
+        if (isWindowFocused(xWin) && X11::XGetWindowAttributes(olc_Display, xWin, &attributes)) {
+            const olc::vi2d pos{
+                std::clamp(vMousePostionToRestore.value().x, 0, std::max(0, attributes.width - 1)),
+                std::clamp(vMousePostionToRestore.value().y, 0, std::max(0, attributes.height - 1))};
+
+            // XWayland needs the hidden cursor and grab to remain active for this warp.
+            X11::XWarpPointer(olc_Display, X11::None, xWin, 0, 0, 0, 0, pos.x, pos.y);
+        }
+    }
+
+    void Host_Linux_X11::initializeXInput2(X11::Display* display, X11::Window window)
     {
         // Check if we have the XInput extension
         int extension_code;
@@ -589,6 +734,8 @@ namespace olc::host
 
         // If we get down here, we have the extension and version is correct
         xinput_extension_code = extension_code;
+        
+        bRawMotionSupported = true;
 
         X11::XIEventMask mask{};
         mask.deviceid = XIAllDevices;

@@ -76,6 +76,7 @@ namespace olc
 		virtual bool olc_OnMouseButton(const uint8_t nButton, const bool bPressed);
 		virtual bool olc_OnMouseMove(const olc::vi2d& vMousePos);
 		virtual bool olc_OnMouseWheel(const int32_t nScroll);
+		virtual void olc_OnRelativeMouseMove(const olc::vf2d& delta);
 		virtual bool olc_OnFocus(const bool bHasFocus);
 		
 		// Set Window State
@@ -113,6 +114,10 @@ namespace olc
 
 		// Show or hide mouse cursor
 		void ShowMouseCursor(const bool bShow);
+
+		// Relative mode captures the mouse while focused, hides the cursor, and provides unlimited movement deltas.
+		// Leaving relative mode restores the cursor’s entry position automatically.
+		bool SetRelativeMouseMode(const bool bEnabled);
 
 		// Set the Window to be FullScreen or Not Fullscreen
 		void ShowFullScreen(const bool bFullScreen);

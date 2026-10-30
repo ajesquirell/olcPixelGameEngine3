@@ -18,6 +18,23 @@ namespace olc::hw
         return wheel;
     }
 
+    const olc::vf2d& Mouse::GetRelativeDelta() const
+    {
+        return relative_delta;
+    }
+
+    bool Mouse::IsRelativeModeEnabled() const
+    {
+        return relative_mode_enabled;
+    }
+
+    void Mouse::SetRelativeModeEnabled(bool enabled)
+    {
+        relative_mode_enabled = enabled;
+        relative_delta = {0.0f, 0.0f};
+        relative_delta_in = {0.0f, 0.0f};
+    }
+
     void Mouse::SetPosition(const olc::vf2d& pos)
     {
         position_in = pos;
@@ -31,6 +48,11 @@ namespace olc::hw
     void Mouse::SetWheel(const int32_t w)
     {
         wheel_in = w;
+    }
+
+    void Mouse::AddRelativeDelta(const olc::vf2d& delta)
+    {
+        relative_delta_in += delta;
     }
 
     void Mouse::UpdateState()
@@ -58,6 +80,8 @@ namespace olc::hw
         position = position_in;
         wheel = wheel_in;
         wheel_in = 0;
+        relative_delta = relative_delta_in;
+        relative_delta_in = {0.0f, 0.0f};
     }
 }
 //! END IMPLEMENTATION

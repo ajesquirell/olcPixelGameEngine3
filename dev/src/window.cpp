@@ -49,6 +49,11 @@ namespace olc
 		return true;
 	}
 
+	void Window::olc_OnRelativeMouseMove(const olc::vf2d& vMouseDelta)
+	{
+		mouse.AddRelativeDelta(vMouseDelta);
+	}
+
 	bool Window::olc_OnFocus(const bool bHasFocus)
 	{
 		bWindowIsFocused = bHasFocus;
@@ -141,6 +146,13 @@ namespace olc
 	void Window::ShowMouseCursor(const bool bShow)
 	{
 		pHost->SetMouseVisible(this, bShow);
+	}
+
+	bool Window::SetRelativeMouseMode(const bool bEnabled)
+	{
+		bool success = pHost->SetRelativeMouseMode(this, bEnabled);
+		if (success) mouse.SetRelativeModeEnabled(bEnabled);
+		return success;
 	}
 
 	void Window::ShowFullScreen(const bool bFullScreen)

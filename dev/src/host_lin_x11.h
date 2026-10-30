@@ -5,7 +5,6 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
-#include <thread>
 #include <vector>
 #include <unordered_map>
 //! END STDHEADER
@@ -60,7 +59,10 @@ namespace olc::host
         bool SetMousePosition(olc::Window* pWindow, const olc::vi2d& vPos) override;
         // Show or hide mouse cursor for given window
         bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
+        // Set a window to fullscreen or not fullscreen
         bool SetFullScreen(olc::Window* pWindow, const bool bFullScreen) override;
+        // Set mouse input mode to relative or normal
+        bool SetRelativeMouseMode(olc::Window* pWindow, bool bEnabled) override;
 
     public:
         bool OnApplicationStart(olc::PixelGameEngine* pPrimary) override;
@@ -70,10 +72,18 @@ namespace olc::host
         bool OnSystemTick() override;
         bool OnSystemThreadEnd() override;
         bool OnApplicationEnd() override;
-    
+
     private:
-        void enableTouch(X11::Display* display, X11::Window window);
+        void initializeXInput2(X11::Display* display, X11::Window window);
         void handleTouchEvent(X11::XIDeviceEvent* event);
+        bool isWindowFocused(X11::Window xWindow);
+        void releaseRelativeMouse(olc::Window* pWindow, bool bRestorePosition);
+        void setRawMouseMotionEnabled(bool bEnabled);
+        void restorePositionAfterCapture(olc::Window* pWindow);
+        void captureCursor(X11::Window xWindow, X11::Cursor xCursor);
+        void releaseCursor();
+
+    private:
         std::unordered_map<size_t, X11::Window> mapUID2X11Window;
         std::unordered_map<X11::Window, olc::Window*> mapX11Window2PTR;
         std::atomic<bool> systemActive {true};
@@ -90,6 +100,11 @@ namespace olc::host
         // Mouse Variables
         std::unordered_map<size_t, X11::Cursor> mapUID2X11Cursor;
         bool bMouseIsVisible = true;
+
+        // Relative Mouse Mode Variables
+        bool bRawMotionSupported = false;
+        olc::Window* pRelativeMouseWindow = nullptr;
+        std::optional<olc::vi2d> vMousePostionToRestore;
     };
 }
 
