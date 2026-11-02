@@ -1,4 +1,5 @@
 #include "host_lin_wayland.h"
+#include "config.h"
 
 
 //! START IMPLEMENTATION
@@ -427,6 +428,12 @@ namespace olc::host
             }
         }
         return true;
+    }
+
+    bool Host_Linux_Wayland::SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled)
+    {
+        olc_IgnoreUnused(pWindow, bEnabled);
+        return false;
     }
 
     void Host_Linux_Wayland::registry_handle_global(wl_registry* registry, uint32_t name, const char* interface, uint32_t version)

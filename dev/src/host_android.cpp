@@ -1,4 +1,5 @@
 #include "host_android.h"
+#include "config.h"
 
 //! START IMPLEMENTATION
 #include <android/input.h>
@@ -781,6 +782,12 @@ namespace olc::host
     
     bool Host_Android::SetFullScreen(olc::Window *pWindow, const bool bFullScreen)
     {
+        return false;
+    }
+
+    bool Host_Android::SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled)
+    {
+        olc_IgnoreUnused(pWindow, bEnabled);
         return false;
     }
 }

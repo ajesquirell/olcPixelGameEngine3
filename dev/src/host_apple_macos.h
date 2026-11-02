@@ -64,6 +64,8 @@ namespace olc
             virtual bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
             // Set a window to fullscreen or not fullscreen
             virtual bool SetFullScreen(olc::Window* pWindow, const bool bFullScreen) override;
+            // Set mouse input mode to relative or normal
+            bool SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled) override;
 
         public: // OS Specific Environment Information
             virtual olc::KeyboardLayout GetKeyboardLayout() const override;

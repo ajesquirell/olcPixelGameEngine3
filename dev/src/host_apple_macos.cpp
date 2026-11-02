@@ -239,6 +239,12 @@ namespace olc::host {
         return true;
     }
 
+    bool Host_Apple_MacOS::SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled)
+    {
+        olc_IgnoreUnused(pWindow, bEnabled);
+        return false;
+    }
+
     uint16_t Host_Apple_MacOS::ConvertPGE2WindowStyle()
     {
         uint16_t nsStyle = 0;

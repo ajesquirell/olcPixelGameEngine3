@@ -64,6 +64,8 @@ namespace olc::host
         bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
         // Set a window to fullscreen or not fullscreen
         bool SetFullScreen(olc::Window* pWindow, const bool bFullScreen) override;
+        // Set mouse input mode to relative or normal
+        bool SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled) override;
 
         void OnAppCmd(AndroidApp* app, int32_t cmd);
         int32_t OnInputEvent(AndroidApp* app, AInputEvent* event);

@@ -642,7 +642,7 @@ namespace olc::host
         return focused == xWindow;
     }
 
-    bool Host_Linux_X11::SetRelativeMouseMode(olc::Window *pWindow, bool bEnabled)
+    bool Host_Linux_X11::SetRelativeMouseMode(olc::Window *pWindow, const bool bEnabled)
     {
         if (!bEnabled)
         {

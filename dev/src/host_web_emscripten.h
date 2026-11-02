@@ -44,6 +44,8 @@ namespace olc::host
         // Show or hide mouse cursor for given window
         bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
         bool SetFullScreen(olc::Window* pWindow, const bool bFullScreen) override;
+        // Set mouse input mode to relative or normal
+        bool SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled) override;
 
     public: // OS Specific Environment Information
         olc::KeyboardLayout GetKeyboardLayout() const override;

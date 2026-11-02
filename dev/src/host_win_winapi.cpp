@@ -410,6 +410,12 @@ namespace olc::host
 		return true;
 	}
 
+	bool Host_Windows_WinAPI::SetRelativeMouseMode(olc::Window* pWindow, const bool bVisible)
+	{
+		olc_IgnoreUnused(pWindow, bEnabled);
+		return false;
+	}
+
 	bool Host_Windows_WinAPI::SetFullScreen(olc::Window* pWindow, const bool bFullScreen)
 	{
 		HWND hWnd = mapUID2HWND.at(pWindow->GetUID());

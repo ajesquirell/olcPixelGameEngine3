@@ -2,9 +2,7 @@
 #include "core.h"
 
 //! START STDHEADER GLOBAL
-#include <cstdint>
 #include <vector>
-#include <optional>
 //! END STDHEADER
 
 //! START CUSTOMHEADER
@@ -33,6 +31,8 @@ namespace olc::host
 		bool SetMousePosition(olc::Window* pWindow, const olc::vi2d& vPos) override;
 		// Show or hide mouse cursor for given window
 		bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
+		// Set mouse input mode to relative or normal
+		bool SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled) override;
 
 	public: // OS Specific Environment Information
 		virtual olc::KeyboardLayout GetKeyboardLayout() const override;

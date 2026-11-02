@@ -1,4 +1,5 @@
 #include "host_none.h"
+#include "config.h"
 
 //! START IMPLEMENTATION
 namespace olc::host
@@ -42,6 +43,13 @@ namespace olc::host
 	// Show or hide mouse cursor for given window
 	bool Host_None::SetMouseVisible(olc::Window* pWindow, const bool bVisible)
 	{
+		return true;
+	}
+
+	// Set mouse input mode to relative or normal
+	bool Host_None::SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled)
+	{
+		olc_IgnoreUnused(pWindow, bEnabled);
 		return true;
 	}
 

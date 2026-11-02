@@ -171,6 +171,7 @@ namespace olc::host
         bool SetMousePosition(olc::Window* pWindow, const olc::vi2d& vPos) override;
         bool SetMouseVisible(olc::Window* pWindow, const bool bVisible) override;
         bool SetFullScreen(olc::Window* pWindow, const bool bFullScreen) override;
+        bool SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled) override;
 
     public:
         bool OnApplicationStart(olc::PixelGameEngine* pPrimary) override;

@@ -304,6 +304,12 @@ namespace olc::host
         return true;
     }
 
+    bool Host_Web_Emscripten::SetRelativeMouseMode(olc::Window* pWindow, const bool bEnabled)
+    {
+        olc_IgnoreUnused(pWindow, bEnabled);
+        return false;
+    }
+
     olc::KeyboardLayout Host_Web_Emscripten::GetKeyboardLayout() const
 	{
 		return keyboardLayout;
